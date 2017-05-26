@@ -1,115 +1,39 @@
 @Library('pipelib@master') _
 
-def THREADFIX_ID = env.THREADFIX_ID ? env.THREADFIX_ID : '115'
-
 node {
   def mvn = tool 'M3'
   def root = pwd()
 
-  stage('Setup') {
+ stage('Build/Install Job Common') {
     git([
-      url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/pz-idam',
+      url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-jobcommon',
       branch: "master"
     ])
-  }
+    sh """
+      ${mvn}/bin/mvn install -U 
+    """
+  } 
 
   stage('Archive') {
-    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) {
+    git([
+      url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-idam',
+      branch: "master"
+    ])
+/*    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) { */
       sh """
         ${mvn}/bin/mvn clean package -U -Dmaven.repo.local=${root}
 
-        [ -z "\$JKS" ] || mv \$JKS ${root}/src/main/resources/pz-idam.jks
+/*        [ -z "\$JKS" ] || mv \$JKS ${root}/src/main/resources/pz-idam.jks */
 
         cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
 
-        [ -f "\$JKS" ] || rm -f \$JKS
+/*        [ -f "\$JKS" ] || rm -f \$JKS */
 
       """
-    }
+//    }
     mavenPush()
   }
 
-  stage('Scans') {
-    dependencyCheck {
-      threadfixId = THREADFIX_ID
-    }
-    ionConnect()
-    sh """
-      mkdir -p ${root}/.m2/repository
-      ${mvn}/bin/mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install \
-        -Dmaven.repo.local=${root}/.m2/repository \
-        -Pcoverage-per-test org.jacoco:jacoco-maven-plugin:report \
-        -DdataFile=target/jacoco.exec
-    """
-    sonar()
-  }
-
-  stage('CI Deploy') {
-    withCredentials([
-      string(credentialsId: 'ff7148c6-2855-4f3d-bd2e-3aa296b09d98', variable: 'JKS_PASSPHRASE'),
-      string(credentialsId: 'da3092c4-d13d-4078-ab91-a630c61547aa', variable: 'PZ_PASSPHRASE')
-    ]) {
-      sh """
-        cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
-
-        for manifest in \$(ls -1 manifest*yml); do
-          echo "    JKS_FILE: pz-idam.jks" >> \$manifest
-          echo "    JKS_PASSPHRASE: \$JKS_PASSPHRASE" >> \$manifest
-          echo "    PZ_PASSPHRASE: \$PZ_PASSPHRASE" >> \$manifest
-        done
-      """
-    }
-    cfPush()
-    zap {
-      threadfixId = THREADFIX_ID
-    }
-    cfBgDeploy()
-  }
-
-  stage('Integration Testing') {
-    postman()
-  }
-
-  stage('Reset') {
-    git([
-      url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/pz-idam',
-      branch: "master"
-    ])
-  }
-
-  stage('Staging Deploy') {
-    withCredentials([
-      string(credentialsId: 'ff7148c6-2855-4f3d-bd2e-3aa296b09d98', variable: 'JKS_PASSPHRASE'),
-      string(credentialsId: 'da3092c4-d13d-4078-ab91-a630c61547aa', variable: 'PZ_PASSPHRASE')
-    ]) {
-      sh """
-        cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
-
-        for manifest in \$(ls -1 manifest*yml); do
-          echo "    JKS_FILE: pz-idam.jks" >> \$manifest
-          echo "    JKS_PASSPHRASE: \$JKS_PASSPHRASE" >> \$manifest
-          echo "    PZ_PASSPHRASE: \$PZ_PASSPHRASE" >> \$manifest
-        done
-      """
-    }
-    cfPush {
-      cfDomain  = 'stage.geointservices.io'
-      cfSpace   = 'stage'
-    }
-    cfBgDeploy {
-      cfDomain  = 'stage.geointservices.io'
-      cfSpace   = 'stage'
-    }
-  }
-
-  stage('Final Scans') {
-    sh """
-      ${mvn}/bin/mvn install:install-file -Dmaven.repo.local=${root} -Dfile=pom.xml -DpomFile=pom.xml
-    """
-    fortify {
-      threadfixId = THREADFIX_ID
-    }
-  }
 
   stage('Cleanup') {
     deleteDir()

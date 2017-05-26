@@ -15,12 +15,21 @@
 		<version>1.4.1.RELEASE</version>
 	</parent>
 
-	<!--<repositories>
+
+	<repositories>
 		<repository>
-			<id>nexus</id>
-			<url>https://nexus.devops.geointservices.io/content/repositories/Piazza-Group/</url>
+			<id>geotools</id>
+			<url>http://download.osgeo.org/webdav/geotools/</url>
 		</repository>
-	</repositories>-->
+<!-- The repositories below are commented out -->
+		<repository>
+			<id>coastline-s3-nexus-replacement</id>
+			<url>s3://coastline-s3-nexus-replacement/content/repositories/</url>
+		        <releases>
+		            <enabled>true</enabled>
+		        </releases>
+		</repository>
+	</repositories>
 
 	<dependencies>
 		<dependency>
