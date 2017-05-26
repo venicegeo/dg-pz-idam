@@ -24,11 +24,11 @@
 <!-- The repositories below are commented out -->
 		<repository>
 			<id>coastline-s3-nexus-replacement</id>
-			<url>s3://coastline-s3-nexus-replacement/content/repositories/</url> 
+			<url>s3://coastline-s3-nexus-replacement/content/repositories/</url>
 		        <releases>
 		            <enabled>true</enabled>
 		        </releases>
-		</repository> 
+		</repository>
 	</repositories>
 
 	<dependencies>

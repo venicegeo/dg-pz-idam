@@ -52,6 +52,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 import org.venice.piazza.idam.authn.GxAuthenticator;
+import org.venice.piazza.idam.authn.MongoAuthenticator;
 import org.venice.piazza.idam.authn.PiazzaAuthenticator;
 
 @SpringBootApplication
@@ -157,5 +158,21 @@ public class Application extends SpringBootServletInitializer {
 
 			return store;
 		}
+	}
+
+	@Configuration
+	@Profile({ "mongo" })
+	protected static class MongoConfig {
+
+		@Bean
+		public PiazzaAuthenticator piazzaAuthenticator() {
+			return new MongoAuthenticator();
+		}
+
+		@Bean
+		public RestTemplate restTemplate() {
+			return new RestTemplate();
+		}
+
 	}
 }
