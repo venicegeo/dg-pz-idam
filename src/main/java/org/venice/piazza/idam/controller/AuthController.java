@@ -24,17 +24,15 @@ import java.util.Map;
 import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.crypto.bcrypt.BCrypt;
+import org.springframework.web.bind.annotation.*;
 import org.venice.piazza.idam.authn.PiazzaAuthenticator;
 import org.venice.piazza.idam.authz.Authorizer;
 import org.venice.piazza.idam.authz.endpoint.EndpointAuthorizer;
@@ -53,6 +51,8 @@ import model.security.authz.AuthorizationCheck;
 import model.security.authz.UserProfile;
 import util.PiazzaLogger;
 import util.UUIDFactory;
+
+import static org.apache.commons.codec.digest.DigestUtils.sha256;
 
 /**
  * Controller that handles the User and Role requests for security information.
@@ -369,4 +369,89 @@ public class AuthController {
 			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
+
+	@RequestMapping(value = "/addUser", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<PiazzaResponse> addUser(
+			@RequestParam(value = "username") String username,
+			@RequestParam(value = "dn") String dn) {
+		if (mongoAccessor.hasUserProfile(username, dn)) {
+			String response = String.format("User: %s already exists", username);
+			return new ResponseEntity<>(new ErrorResponse(response, IDAM_COMPONENT_NAME), HttpStatus.BAD_REQUEST);
+		} else {
+			final DateTime time = new DateTime();
+			UserProfile userProfile = new UserProfile();
+			userProfile.setUsername(username);
+			userProfile.setCredential(BCrypt.hashpw(username, BCrypt.gensalt(12)));
+			userProfile.setAdminCode("");
+			userProfile.setCountry("us");
+			userProfile.setDistinguishedName(dn);
+			userProfile.setDutyCode("");
+			userProfile.setCreatedBy("system");
+			userProfile.setCreatedOn(time);
+			userProfile.setCreatedOnString(time.toString());
+			userProfile.setLastUpdatedOn(time);
+			userProfile.setLastUpdatedOnString(time.toString());
+			userProfile.setNPE(false);
+			mongoAccessor.insertUserProfile(userProfile);
+		}
+		String response = String.format("User: %s was created", username);
+		return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+	}
+
+	@RequestMapping(value = "/updatePassword", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<PiazzaResponse> updatePassword(
+			@RequestBody Map<String, String> body) {
+		try {
+			// Decode credentials. We need to get the username of this account.
+			String authHeader = request.getHeader("Authorization");
+			String username = null;
+
+			// Ensure the Authorization Header is present
+			if (authHeader != null) {
+				String[] headerParts = authHeader.split(" ");
+				// Ensure Valid Auth
+				if (headerParts.length == 2) {
+					String decodedAuthNInfo = new String(Base64.getDecoder().decode(headerParts[1]), StandardCharsets.UTF_8);
+					// PKI Auth - authenticate and get username
+					if (decodedAuthNInfo.split(":").length == 1) {
+						AuthResponse authResponse = piazzaAuthenticator.getAuthenticationDecision(decodedAuthNInfo.split(":")[0]);
+						if (authResponse.getIsAuthSuccess()) {
+							username = authResponse.getUserProfile().getUsername();
+						}
+					}
+					// BASIC Auth - authenticate and get username
+					else if (decodedAuthNInfo.split(":").length == 2) {
+						String[] decodedUserPassParts = decodedAuthNInfo.split(":");
+						if (piazzaAuthenticator.getAuthenticationDecision(decodedUserPassParts[0], decodedUserPassParts[1])
+								.getIsAuthSuccess()) {
+							username = decodedUserPassParts[0];
+						}
+					}
+					// Username found and authenticated. Update the creds.
+					if (username != null) {
+						UserProfile userProfile = mongoAccessor.getUserProfileByUsername(username);
+						final String newPassword = body.get("newPassword");
+						userProfile.setCredential(BCrypt.hashpw(newPassword, BCrypt.gensalt(12)));
+						mongoAccessor.updateUserProfile(userProfile);
+						pzLogger.log(String.format("Successfully updated password for user %s.", username), Severity.INFORMATIONAL,
+								new AuditElement(username, "updateCredential", ""));
+						return new ResponseEntity<>(new SuccessResponse("Password Updated", IDAM_COMPONENT_NAME), HttpStatus.OK);
+					}
+				}
+			}
+			// If the username was not found and authenticated from the auth header, then no action can be taken.
+			// Return an error.
+			String error = "Could not update the credential.";
+			pzLogger.log(error, Severity.INFORMATIONAL, new AuditElement(username, "failedToUpdateCredential", ""));
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.UNAUTHORIZED);
+		} catch (Exception exception) {
+			// Log
+			String error = String.format("Error updating credential: %s", exception.getMessage());
+			LOGGER.error(error, exception);
+			pzLogger.log(error, Severity.ERROR);
+			// Return Error
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
 }
