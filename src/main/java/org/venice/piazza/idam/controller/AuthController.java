@@ -370,7 +370,7 @@ public class AuthController {
 		}
 	}
 
-	@RequestMapping(value = "/addUser", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
+	@RequestMapping(value = "/user", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<PiazzaResponse> addUser(
 			@RequestParam(value = "username") String username,
 			@RequestParam(value = "dn") String dn) {
@@ -454,4 +454,28 @@ public class AuthController {
 		}
 	}
 
+	/**
+	 * Deletes user with provided username
+	 *
+	 * @param username
+	 * @return PiazzaResponse
+	 */
+	@RequestMapping(value = "/user/{username}", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<PiazzaResponse> deleteUser(@PathVariable(value = "username") String username) {
+		try {
+			//Delete API Key
+			mongoAccessor.deleteUserProfile(username);
+
+			//Log the action
+			String response = String.format("User: %s was deleted", username);
+			pzLogger.log(response, Severity.INFORMATIONAL, new AuditElement(username, "deleteUser", ""));
+			LOGGER.info(response);
+			return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+		} catch (Exception exception) {
+			String error = String.format("Error deleting user: %s", exception.getMessage());
+			LOGGER.error(error, exception);
+			pzLogger.log(error, Severity.ERROR);
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
 }
