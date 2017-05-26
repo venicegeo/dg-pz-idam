@@ -19,7 +19,6 @@ node {
       url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-idam',
       branch: "master"
     ])
-// Removing credentials for now just building
 /*    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) { */
       sh """
         ${mvn}/bin/mvn clean package -U -Dmaven.repo.local=${root}
@@ -31,7 +30,7 @@ node {
 /*        [ -f "\$JKS" ] || rm -f \$JKS */
 
       """
-    }
+//    }
     mavenPush()
   }
 
