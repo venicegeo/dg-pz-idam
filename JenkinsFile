@@ -19,15 +19,16 @@ node {
       url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-idam',
       branch: "master"
     ])
-    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) {
+// Removing credentials for now just building
+/*    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) { */
       sh """
         ${mvn}/bin/mvn clean package -U -Dmaven.repo.local=${root}
 
-        [ -z "\$JKS" ] || mv \$JKS ${root}/src/main/resources/pz-idam.jks
+/*        [ -z "\$JKS" ] || mv \$JKS ${root}/src/main/resources/pz-idam.jks */
 
         cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
 
-        [ -f "\$JKS" ] || rm -f \$JKS
+/*        [ -f "\$JKS" ] || rm -f \$JKS */
 
       """
     }
