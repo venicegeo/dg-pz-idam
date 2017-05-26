@@ -10,7 +10,7 @@ node {
       branch: "master"
     ])
     sh """
-      ${mvn}/bin/mvn install -U 
+      ${mvn}/bin/mvn install -U -Dmaven.repo.local=${root}
     """
   } 
 
