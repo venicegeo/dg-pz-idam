@@ -52,8 +52,6 @@ import model.security.authz.UserProfile;
 import util.PiazzaLogger;
 import util.UUIDFactory;
 
-import static org.apache.commons.codec.digest.DigestUtils.sha256;
-
 /**
  * Controller that handles the User and Role requests for security information.
  * 

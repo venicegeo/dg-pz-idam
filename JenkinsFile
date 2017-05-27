@@ -5,12 +5,14 @@ node {
   def root = pwd()
 
  stage('Build/Install Job Common') {
+     
     git([
       url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-jobcommon',
       branch: "master"
     ])
     sh """
-      ${mvn}/bin/mvn install -U 
+      echo ${root}
+      ${mvn}/bin/mvn install -U -Dmaven.repo.local=${root}
     """
   } 
 
