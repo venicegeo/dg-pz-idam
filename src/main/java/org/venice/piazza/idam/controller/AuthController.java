@@ -372,30 +372,68 @@ public class AuthController {
 
 	@RequestMapping(value = "/user", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<PiazzaResponse> addUser(
-			@RequestParam(value = "username") String username,
+			@RequestParam(value = "username") String usernameToAdd,
 			@RequestParam(value = "dn") String dn) {
-		if (mongoAccessor.hasUserProfile(username, dn)) {
-			String response = String.format("User: %s already exists", username);
-			return new ResponseEntity<>(new ErrorResponse(response, IDAM_COMPONENT_NAME), HttpStatus.BAD_REQUEST);
-		} else {
-			final DateTime time = new DateTime();
-			UserProfile userProfile = new UserProfile();
-			userProfile.setUsername(username);
-			userProfile.setCredential(BCrypt.hashpw(username, BCrypt.gensalt(12)));
-			userProfile.setAdminCode("");
-			userProfile.setCountry("us");
-			userProfile.setDistinguishedName(dn);
-			userProfile.setDutyCode("");
-			userProfile.setCreatedBy("system");
-			userProfile.setCreatedOn(time);
-			userProfile.setCreatedOnString(time.toString());
-			userProfile.setLastUpdatedOn(time);
-			userProfile.setLastUpdatedOnString(time.toString());
-			userProfile.setNPE(false);
-			mongoAccessor.insertUserProfile(userProfile);
+		try {
+			String headerValue = request.getHeader("Authorization");
+			String username = null;
+
+			if (headerValue != null) {
+				String[] headerParts = headerValue.split(" ");
+
+				if (headerParts.length == 2) {
+
+					String decodedAuthNInfo = new String(Base64.getDecoder().decode(headerParts[1]), StandardCharsets.UTF_8);
+
+					// Don't even offer PKI right now
+
+					// BASIC Auth
+					// else
+					if (decodedAuthNInfo.split(":").length == 2) {
+						String[] decodedUserPassParts = decodedAuthNInfo.split(":");
+						username = decodedUserPassParts[0];
+						String credential = decodedUserPassParts[1];
+						AuthResponse authResponse = piazzaAuthenticator.getAuthenticationDecision(username, credential);
+
+						if (authResponse.getIsAuthSuccess()) {
+
+							if (mongoAccessor.hasUserProfile(usernameToAdd, dn)) {
+								String response = String.format("User: %s already exists", usernameToAdd);
+								return new ResponseEntity<>(new ErrorResponse(response, IDAM_COMPONENT_NAME), HttpStatus.BAD_REQUEST);
+							} else {
+								final DateTime time = new DateTime();
+								UserProfile userProfile = new UserProfile();
+								userProfile.setUsername(usernameToAdd);
+								userProfile.setCredential(BCrypt.hashpw(usernameToAdd, BCrypt.gensalt(12)));
+								userProfile.setAdminCode("");
+								userProfile.setCountry("us");
+								userProfile.setDistinguishedName(dn);
+								userProfile.setDutyCode("");
+								userProfile.setCreatedBy("system");
+								userProfile.setCreatedOn(time);
+								userProfile.setCreatedOnString(time.toString());
+								userProfile.setLastUpdatedOn(time);
+								userProfile.setLastUpdatedOnString(time.toString());
+								userProfile.setNPE(false);
+								mongoAccessor.insertUserProfile(userProfile);
+							}
+							String response = String.format("User: %s was created", username);
+							return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+						}
+					}
+				}
+			}
+
+			String error = "Authentication failed for user " + username;
+			pzLogger.log(error, Severity.INFORMATIONAL, new AuditElement(username, "failedToGenerateKey", ""));
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.UNAUTHORIZED);
+		} catch (Exception exception) {
+			String error = String.format("Error retrieving API Key: %s", exception.getMessage());
+			LOGGER.error(error, exception);
+			pzLogger.log(error, Severity.ERROR);
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.INTERNAL_SERVER_ERROR);
 		}
-		String response = String.format("User: %s was created", username);
-		return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+
 	}
 
 	@RequestMapping(value = "/updatePassword", method = RequestMethod.POST, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -457,20 +495,50 @@ public class AuthController {
 	/**
 	 * Deletes user with provided username
 	 *
-	 * @param username
+	 * @param usernameToDelete
 	 * @return PiazzaResponse
 	 */
 	@RequestMapping(value = "/user/{username}", method = RequestMethod.DELETE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<PiazzaResponse> deleteUser(@PathVariable(value = "username") String username) {
+	public ResponseEntity<PiazzaResponse> deleteUser(@PathVariable(value = "username") String usernameToDelete) {
 		try {
-			//Delete API Key
-			mongoAccessor.deleteUserProfile(username);
+			String headerValue = request.getHeader("Authorization");
+			String username = null;
 
-			//Log the action
-			String response = String.format("User: %s was deleted", username);
-			pzLogger.log(response, Severity.INFORMATIONAL, new AuditElement(username, "deleteUser", ""));
-			LOGGER.info(response);
-			return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+			if (headerValue != null) {
+				String[] headerParts = headerValue.split(" ");
+
+				if (headerParts.length == 2) {
+
+					String decodedAuthNInfo = new String(Base64.getDecoder().decode(headerParts[1]), StandardCharsets.UTF_8);
+
+					// Don't even offer PKI right now
+
+					// BASIC Auth
+					// else
+					if (decodedAuthNInfo.split(":").length == 2) {
+						String[] decodedUserPassParts = decodedAuthNInfo.split(":");
+						username = decodedUserPassParts[0];
+						String credential = decodedUserPassParts[1];
+						AuthResponse authResponse = piazzaAuthenticator.getAuthenticationDecision(username, credential);
+
+						if (authResponse.getIsAuthSuccess()) {
+
+							//Delete UserProfile
+							mongoAccessor.deleteUserProfile(usernameToDelete);
+
+							//Log the action
+							String response = String.format("User: %s was deleted by %s", usernameToDelete, username);
+							pzLogger.log(response, Severity.INFORMATIONAL, new AuditElement(usernameToDelete, "deleteUser", ""));
+							LOGGER.info(response);
+							return new ResponseEntity<>(new SuccessResponse(response, IDAM_COMPONENT_NAME), HttpStatus.OK);
+						}
+					}
+				}
+			}
+
+			String error = "Authentication failed for user " + username;
+			pzLogger.log(error, Severity.INFORMATIONAL, new AuditElement(username, "failedToGenerateKey", ""));
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.UNAUTHORIZED);
 		} catch (Exception exception) {
 			String error = String.format("Error deleting user: %s", exception.getMessage());
 			LOGGER.error(error, exception);
