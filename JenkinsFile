@@ -31,8 +31,10 @@ node {
 	// Removing Maven push for coastline
 	//mavenPush()
   }
-
-
+  stage('Staging Deploy') {
+    cfPush()
+  }
+  
   stage('Cleanup') {
     deleteDir()
   }
