@@ -21,17 +21,11 @@ node {
       url: env.GIT_URL ? env.GIT_URL : 'https://github.com/venicegeo/dg-pz-idam',
       branch: "master"
     ])
-    echo "Git checkout ok"
-/*    withCredentials([file(credentialsId: 'ca8591a7-fc1f-4b6d-808e-c9944c9bf4f8', variable: 'JKS')]) { */
+
       sh """
-        echo "Starting maven clean"
         ${mvn}/bin/mvn clean package -U -Dmaven.repo.local=${root}
-		echo "Maven clean ok, copying..."
 
         cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
-		echo "Copy ok"
-/*        [ -f "\$JKS" ] || rm -f \$JKS */
-
       """
 //    }
 	// Removing Maven push for coastline
