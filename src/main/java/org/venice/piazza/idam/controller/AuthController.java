@@ -89,6 +89,58 @@ public class AuthController {
 	}
 
 	/**
+	 * Verifies the provided username and credential from the header.
+	 *
+	 * @return Object JSON object that provides the authentication result. 
+	 */
+	@RequestMapping(value = "/authentication", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<PiazzaResponse> authenticateCredentials() {
+		try {
+			String headerValue = request.getHeader("Authorization");
+			AuthResponse authResponse = null;
+			String username = null;
+
+			if (headerValue != null) {
+				String[] headerParts = headerValue.split(" ");
+
+				if (headerParts.length == 2) {
+
+					String decodedAuthNInfo = new String(Base64.getDecoder().decode(headerParts[1]), StandardCharsets.UTF_8);
+
+					// PKI Auth
+					if (decodedAuthNInfo.split(":").length == 1) {
+						authResponse = piazzaAuthenticator.getAuthenticationDecision(decodedAuthNInfo.split(":")[0]);
+					}
+
+					// BASIC Auth
+					else if (decodedAuthNInfo.split(":").length == 2) {
+						String[] decodedUserPassParts = decodedAuthNInfo.split(":");
+						username = decodedUserPassParts[0];
+						String credential = decodedUserPassParts[1];
+						authResponse = piazzaAuthenticator.getAuthenticationDecision(username, credential);
+					}
+
+					if (authResponse != null && authResponse.getIsAuthSuccess()) {
+						// Return the Key
+						pzLogger.log("Successfully authenticated.", Severity.INFORMATIONAL,
+								new AuditElement(username, "authenticateSuccess", ""));
+						return new ResponseEntity<>(authResponse, HttpStatus.OK);
+					}
+				}
+			}
+
+			String error = "Authentication failed for user " + username;
+			pzLogger.log(error, Severity.INFORMATIONAL, new AuditElement(username, "failedToAuthenticateUser", ""));
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.UNAUTHORIZED);
+		} catch (Exception exception) {
+			String error = String.format("Error authenticating user: %s", exception.getMessage());
+			LOGGER.error(error, exception);
+			pzLogger.log(error, Severity.ERROR);
+			return new ResponseEntity<>(new ErrorResponse(error, IDAM_COMPONENT_NAME), HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
+
+	/**
 	 * Verifies that an API key is valid. Authentication.
 	 * 
 	 * @param body
