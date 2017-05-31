@@ -27,7 +27,6 @@ node {
         echo "Starting maven clean"
         ${mvn}/bin/mvn clean package -U -Dmaven.repo.local=${root}
 		echo "Maven clean ok, copying..."
-/*        [ -z "\$JKS" ] || mv \$JKS ${root}/src/main/resources/pz-idam.jks */
 
         cp target/piazza-idam-1.0.0.jar ${root}/pz-idam.jar
 		echo "Copy ok"
