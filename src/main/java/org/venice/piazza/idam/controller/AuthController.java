@@ -120,7 +120,7 @@ public class AuthController {
 						authResponse = piazzaAuthenticator.getAuthenticationDecision(username, credential);
 					}
 
-					if (authResponse.getIsAuthSuccess()) {
+					if (authResponse != null && authResponse.getIsAuthSuccess()) {
 						// Return the Key
 						pzLogger.log("Successfully authenticated.", Severity.INFORMATIONAL,
 								new AuditElement(username, "authenticateSuccess", ""));
