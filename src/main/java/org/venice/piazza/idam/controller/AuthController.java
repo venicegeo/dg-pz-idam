@@ -89,12 +89,9 @@ public class AuthController {
 	}
 
 	/**
-	 * Generates a new API Key based on the provided username and credential for GeoAxis.
+	 * Verifies the provided username and credential from the header.
 	 *
-	 * @param body
-	 *            A JSON object containing the 'username' and 'credential' fields.
-	 *
-	 * @return String UUID generated from the UUIDFactory in pz-jobcommon
+	 * @return Object JSON object that provides the authentication result. 
 	 */
 	@RequestMapping(value = "/authentication", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<PiazzaResponse> authenticateCredentials() {
