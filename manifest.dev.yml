@@ -5,7 +5,6 @@ applications:
   instances: 1
   timeout: 80
   services:
-    - ldap
     - pz-mongodb
     - pz-servicecontroller
     - beachfront
@@ -15,4 +14,4 @@ applications:
   path: pz-idam.jar
   buildpack: 'https://github.com/cloudfoundry/java-buildpack.git#v3.9'
   env:
-    SPRING_PROFILES_ACTIVE: ldap
+    SPRING_PROFILES_ACTIVE: mongo
